@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,20 +12,40 @@ import (
 
 func main() {
 	now := time.Now()
-	dest := fmt.Sprintf("./backup-%d-%d-%d-%d", now.Year(), now.Month(), now.Day(), now.Second())
+	dest := fmt.Sprintf("./backup-%d-%d-%d-%d.zip", now.Year(), now.Month(), now.Day(), now.Second())
 
-	input := "../dotfiles"
+	inputPath := parseInput()
 
-	compressFolder(input, dest)
+	compressFolder(inputPath, dest)
 	sendToS3(dest)
 }
 
+func parseInput() string {
+	if len(os.Args) != 2 {
+		log.Fatal("Invalid args. Only provide a relative path to the directory.")
+	}
+
+	inputPath := os.Args[1]
+
+	if string(inputPath[0]) == "/" {
+		log.Fatal("Invalid path. It must be a relative path to a directory.")
+	}
+
+	_, err := os.Stat(inputPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Fatal("Invalid path. Directory not found.")
+		}
+		log.Fatal("Invalid path:", err)
+	}
+	return inputPath
+}
+
 func sendToS3(dest string) {
-	zip, err := os.ReadFile(dest)
+	_, err := os.ReadFile(dest)
 	if err != nil {
 		fmt.Errorf(err.Error())
 	}
-	fmt.Println(zip)
 }
 
 func compressFolder(folderPath string, destination string) error {
