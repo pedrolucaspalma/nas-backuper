@@ -2,22 +2,30 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 func main() {
-	now := time.Now()
-	dest := fmt.Sprintf("./backup-%d-%d-%d-%d.zip", now.Year(), now.Month(), now.Day(), now.Second())
-
 	inputPath := parseInput()
+	f, err := getFolderCompressed(inputPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	compressFolder(inputPath, dest)
-	sendToS3(dest)
+	err = sendToS3(f)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func parseInput() string {
@@ -41,27 +49,37 @@ func parseInput() string {
 	return inputPath
 }
 
-func sendToS3(dest string) {
-	_, err := os.ReadFile(dest)
-	if err != nil {
-		fmt.Errorf(err.Error())
-	}
-}
-
-func compressFolder(folderPath string, destination string) error {
-	// Create the destination zip file
-	zipFile, err := os.Create(destination)
+func sendToS3(file []byte) error {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-1"),
+	})
 	if err != nil {
 		return err
 	}
-	defer zipFile.Close()
 
-	// Create a new zip writer
-	zipWriter := zip.NewWriter(zipFile)
+	svc := s3.New(sess)
+
+	now := time.Now()
+	objectName := fmt.Sprintf("./backup-%d-%d-%d-%d.zip", now.Year(), now.Month(), now.Day(), now.Second())
+
+	_, err = svc.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String("example-bucket"),
+		Key:    aws.String(objectName),
+		Body:   bytes.NewReader(file),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getFolderCompressed(folderPath string) ([]byte, error) {
+	var b bytes.Buffer
+	zipWriter := zip.NewWriter(&b)
 	defer zipWriter.Close()
 
 	// Walk through the source folder
-	return filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -102,4 +120,11 @@ func compressFolder(folderPath string, destination string) error {
 		_, err = io.Copy(writer, srcFile)
 		return err
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+
 }
