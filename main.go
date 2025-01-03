@@ -16,21 +16,26 @@ import (
 )
 
 func main() {
-	inputPath := parseInput()
-	f, err := getFolderCompressed(inputPath)
+	input := parseInput()
+	f, err := getFolderCompressed(input.inputPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = sendToS3(f)
+	err = sendToS3(f, input.bucket)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func parseInput() string {
-	if len(os.Args) != 2 {
-		log.Fatal("Invalid args. Only provide a relative path to the directory.")
+type input struct {
+	inputPath string
+	bucket    string
+}
+
+func parseInput() input {
+	if len(os.Args) != 3 {
+		log.Fatal("Invalid args. You must provide a relative path to the directory and the bucket name.")
 	}
 
 	inputPath := os.Args[1]
@@ -46,10 +51,20 @@ func parseInput() string {
 		}
 		log.Fatal("Invalid path:", err)
 	}
-	return inputPath
+
+	bucketName := os.Args[2]
+
+	if len(bucketName) == 0 {
+		log.Fatal("Invalid bucket name.")
+	}
+
+	return input{
+		inputPath: inputPath,
+		bucket:    bucketName,
+	}
 }
 
-func sendToS3(file []byte) error {
+func sendToS3(file []byte, bucket string) error {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	})
@@ -60,10 +75,10 @@ func sendToS3(file []byte) error {
 	svc := s3.New(sess)
 
 	now := time.Now()
-	objectName := fmt.Sprintf("./backup-%d-%d-%d-%d.zip", now.Year(), now.Month(), now.Day(), now.Second())
+	objectName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
 	_, err = svc.PutObject(&s3.PutObjectInput{
-		Bucket: aws.String("example-bucket"),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(objectName),
 		Body:   bytes.NewReader(file),
 	})
