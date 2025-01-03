@@ -26,6 +26,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Print("Backup finished successfully!")
 }
 
 type input struct {
@@ -65,6 +67,7 @@ func parseInput() input {
 }
 
 func sendToS3(file []byte, bucket string) error {
+	log.Print("Creating aws session...")
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	})
@@ -77,6 +80,7 @@ func sendToS3(file []byte, bucket string) error {
 	now := time.Now()
 	objectName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
+	log.Print("Uploading folder...")
 	_, err = svc.PutObject(&s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(objectName),
@@ -89,6 +93,7 @@ func sendToS3(file []byte, bucket string) error {
 }
 
 func getFolderCompressed(folderPath string) ([]byte, error) {
+	log.Print("Reading folder and compressing...")
 	var b bytes.Buffer
 	zipWriter := zip.NewWriter(&b)
 	defer zipWriter.Close()
