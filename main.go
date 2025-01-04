@@ -22,7 +22,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = sendToS3(f, input.bucket)
+	now := time.Now()
+	objectName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
+
+	s3Sender := &S3Sender{
+		region:   "us-east-1",
+		fileName: objectName,
+	}
+
+	reader := bytes.NewReader(f)
+	err = s3Sender.SendToS3(reader, input.bucket)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,10 +75,40 @@ func parseInput() input {
 	}
 }
 
-func sendToS3(file []byte, bucket string) error {
+type S3Sender struct {
+	region   string
+	fileName string
+}
+
+type S3SenderOption func(*S3Sender) S3SenderOption
+
+func Region(r string) S3SenderOption {
+	return func(s *S3Sender) S3SenderOption {
+		previous := s.region
+		s.region = r
+		return Region(previous)
+	}
+}
+
+func FileName(f string) S3SenderOption {
+	return func(s *S3Sender) S3SenderOption {
+		previous := s.fileName
+		s.fileName = f
+		return Region(previous)
+	}
+}
+
+func (s *S3Sender) Option(opts ...S3SenderOption) (previous S3SenderOption) {
+	for _, opt := range opts {
+		previous = opt(s)
+	}
+	return previous
+}
+
+func (s *S3Sender) SendToS3(reader io.ReadSeeker, bucket string) error {
 	log.Print("Creating aws session...")
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
+		Region: aws.String(s.region),
 	})
 	if err != nil {
 		return err
@@ -77,14 +116,11 @@ func sendToS3(file []byte, bucket string) error {
 
 	svc := s3.New(sess)
 
-	now := time.Now()
-	objectName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
-
 	log.Print("Uploading folder...")
 	_, err = svc.PutObject(&s3.PutObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(objectName),
-		Body:   bytes.NewReader(file),
+		Key:    aws.String(s.fileName),
+		Body:   reader,
 	})
 	if err != nil {
 		return err
