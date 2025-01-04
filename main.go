@@ -3,11 +3,9 @@ package main
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/pedrolucaspalma/nas-backuper/compressor"
 	"github.com/pedrolucaspalma/nas-backuper/providers/s3"
@@ -15,20 +13,19 @@ import (
 
 func main() {
 	input := parseInput()
-	fmt.Printf("%+v\n", input)
 	f, err := compressor.GetFolder(input.inputPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	uploader := &s3.Uploader{}
+	uploader := s3.NewUploader(input.bucket)
 	uploader.Option(
 		s3.Region(input.region),
 		s3.FileName(input.fileName),
 	)
 
 	reader := bytes.NewReader(f)
-	err = uploader.Send(reader, input.bucket)
+	err = uploader.Send(reader)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,11 +45,10 @@ func parseInput() input {
 	// Parsing optional flags
 	// TODO feature
 	mustUseTempFile := flag.Bool("tempFile", false, "If the program must temporarily write the compressed file to the disk before sending to cloud provider. This should reduce memory usage when handling large files, but makes the program bound to disk I/O.")
-	region := flag.String("region", "us-east-1", "The cloud provider region")
 
-	now := time.Now()
-	defaultFileName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
-	fileName := flag.String("name", defaultFileName, "The compressed file's name to be used when uploading to cloud provider")
+	region := flag.String("region", "", "The cloud provider region")
+
+	fileName := flag.String("name", "", "The compressed file's name to be used when uploading to cloud provider")
 
 	flag.Parse()
 
