@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -22,12 +23,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	now := time.Now()
-	objectName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
-
 	s3Sender := &S3Sender{
-		region:   "us-east-1",
-		fileName: objectName,
+		region:   input.region,
+		fileName: input.fileName,
 	}
 
 	reader := bytes.NewReader(f)
@@ -40,16 +38,31 @@ func main() {
 }
 
 type input struct {
-	inputPath string
-	bucket    string
+	inputPath       string
+	bucket          string
+	region          string
+	fileName        string
+	mustUseTempFile bool
 }
 
 func parseInput() input {
-	if len(os.Args) != 3 {
+	// Parsing optional flags
+	mustUseTempFile := flag.Bool("tempFile", false, "If the program must write a temporary file to the disk before sending to cloud provider. This should reduce memory usage when handling large files, but makes the program bound to disk I/O.")
+	region := flag.String("region", "us-east-1", "The cloud provider region")
+
+	now := time.Now()
+	defaultFileName := fmt.Sprintf("./backup-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
+	fileName := flag.String("name", defaultFileName, "The compressed file's name to be used when uploading to cloud provider")
+
+	flag.Parse()
+
+	// Parsing mandatory arguments
+	args := flag.Args()
+	if len(args) != 2 {
 		log.Fatal("Invalid args. You must provide a relative path to the directory and the bucket name.")
 	}
 
-	inputPath := os.Args[1]
+	inputPath := args[1]
 
 	if string(inputPath[0]) == "/" {
 		log.Fatal("Invalid path. It must be a relative path to a directory.")
@@ -70,8 +83,11 @@ func parseInput() input {
 	}
 
 	return input{
-		inputPath: inputPath,
-		bucket:    bucketName,
+		inputPath:       inputPath,
+		bucket:          bucketName,
+		region:          *region,
+		fileName:        *fileName,
+		mustUseTempFile: *mustUseTempFile,
 	}
 }
 
