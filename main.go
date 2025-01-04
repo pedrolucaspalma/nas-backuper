@@ -18,6 +18,7 @@ import (
 
 func main() {
 	input := parseInput()
+	fmt.Printf("%+v\n", input)
 	f, err := getFolderCompressed(input.inputPath)
 	if err != nil {
 		log.Fatal(err)
@@ -62,7 +63,7 @@ func parseInput() input {
 		log.Fatal("Invalid args. You must provide a relative path to the directory and the bucket name.")
 	}
 
-	inputPath := args[1]
+	inputPath := args[0]
 
 	if string(inputPath[0]) == "/" {
 		log.Fatal("Invalid path. It must be a relative path to a directory.")
@@ -76,7 +77,7 @@ func parseInput() input {
 		log.Fatal("Invalid path:", err)
 	}
 
-	bucketName := os.Args[2]
+	bucketName := args[1]
 
 	if len(bucketName) == 0 {
 		log.Fatal("Invalid bucket name.")
