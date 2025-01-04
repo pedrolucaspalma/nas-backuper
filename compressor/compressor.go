@@ -9,13 +9,24 @@ import (
 	"path/filepath"
 )
 
-func GetFolder(folderPath string) ([]byte, error) {
+func GetFolder(path string) ([]byte, error) {
 	log.Print("Reading folder and compressing...")
 	var b bytes.Buffer
-	zipWriter := zip.NewWriter(&b)
-	defer zipWriter.Close()
+	w := zip.NewWriter(&b)
+	defer w.Close()
 
 	// Walk through the source folder
+	err := zipFolder(w, path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+
+}
+
+func zipFolder(w *zip.Writer, folderPath string) error {
 	err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -41,7 +52,7 @@ func GetFolder(folderPath string) ([]byte, error) {
 		header.Method = zip.Deflate // Compression method
 
 		// Create the file in the zip archive
-		writer, err := zipWriter.CreateHeader(header)
+		writer, err := w.CreateHeader(header)
 		if err != nil {
 			return err
 		}
@@ -57,11 +68,5 @@ func GetFolder(folderPath string) ([]byte, error) {
 		_, err = io.Copy(writer, srcFile)
 		return err
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-
+	return err
 }
