@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pedrolucaspalma/nas-backuper/compressor"
@@ -63,7 +64,7 @@ func parseInput() input {
 
 	inputPath := args[0]
 
-	if string(inputPath[0]) == "/" {
+	if filepath.IsAbs(inputPath) {
 		log.Fatal("Invalid path. It must be a relative path to a directory.")
 	}
 
