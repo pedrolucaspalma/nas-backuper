@@ -23,6 +23,7 @@ The region of the S3 Bucket. Defaults to us-east-1.
 
 ## TODO
 [] Allow for temporarily writing a file in disk and then streaming it to S3. Will require the usage of a flag passing the location of where to write the file.
+[] Create binary download on github
 [] Dropbox provider
 [] DigitalOcean provider
 [] GoogleCloud provider
